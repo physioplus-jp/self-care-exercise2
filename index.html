@@ -1343,14 +1343,22 @@
         '</li>';
       }).join("") + '</ul>' +
       '<p class="patient-note">' + esc(PATIENT_NOTE) + '</p>';
-    // サムネイルが読めない(動画が見つからない)ときは、枠ごと消す
+    // サムネイルは高画質のものから順に試す。動画によっては高画質版がないため、
+    // 読めない・120×90 の灰色の画像(見つからないときの画像)なら次の画質へ。どれもなければ枠ごと消す
     var imgs = body.querySelectorAll(".ex-thumb img");
     for (var i = 0; i < imgs.length; i++){
       (function(img){
-        function drop(){ var a = img.closest(".ex-thumb"); if (a && a.parentNode) a.parentNode.removeChild(a); }
-        img.addEventListener("error", drop);
-        // 見つからない動画は 120×90 の灰色の画像が返るため、それも消す
-        img.addEventListener("load", function(){ if (img.naturalWidth && img.naturalWidth <= 120) drop(); });
+        var step = 0;
+        function next(){
+          step++;
+          if (step < THUMB_QUALITIES.length){
+            img.src = "https://i.ytimg.com/vi/" + img.getAttribute("data-yt") + "/" + THUMB_QUALITIES[step] + ".jpg";
+          } else {
+            var a = img.closest(".ex-thumb"); if (a && a.parentNode) a.parentNode.removeChild(a);
+          }
+        }
+        img.addEventListener("error", next);
+        img.addEventListener("load", function(){ if (img.naturalWidth && img.naturalWidth <= 120) next(); });
       })(imgs[i]);
     }
   }
@@ -1370,12 +1378,14 @@
     }
     return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : "";
   }
+  // サムネイルの画質(高い順)。maxres=1280×720 / sd=640×480 / hq=480×360 / mq=320×180
+  var THUMB_QUALITIES = ["maxresdefault", "sddefault", "hqdefault", "mqdefault"];
   // サムネイル(押すと動画が開く)。YouTube以外のリンクのときは出さない
   function thumbHtml(s){
     var id = youtubeId(s.url);
     if (!id) return "";
     return '<a class="ex-thumb" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-hidden="true">' +
-      '<img src="https://i.ytimg.com/vi/' + id + '/mqdefault.jpg" alt="" width="320" height="180" loading="lazy" referrerpolicy="no-referrer">' +
+      '<img src="https://i.ytimg.com/vi/' + id + '/' + THUMB_QUALITIES[0] + '.jpg" data-yt="' + id + '" alt="" width="1280" height="720" decoding="async" referrerpolicy="no-referrer">' +
       '<span class="ex-thumb-play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></span>' +
     '</a>';
   }
